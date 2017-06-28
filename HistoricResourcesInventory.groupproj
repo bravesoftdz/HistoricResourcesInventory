@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{1815C03A-3083-4CA4-8928-48503A18F0DB}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="muni_parcel_filter\MuniParcelFilter.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="atlas_generator\HistoricResourcesAtlasGenerator.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="MuniParcelFilter">
+        <MSBuild Projects="muni_parcel_filter\MuniParcelFilter.dproj"/>
+    </Target>
+    <Target Name="MuniParcelFilter:Clean">
+        <MSBuild Projects="muni_parcel_filter\MuniParcelFilter.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MuniParcelFilter:Make">
+        <MSBuild Projects="muni_parcel_filter\MuniParcelFilter.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="HistoricResourcesAtlasGenerator">
+        <MSBuild Projects="atlas_generator\HistoricResourcesAtlasGenerator.dproj"/>
+    </Target>
+    <Target Name="HistoricResourcesAtlasGenerator:Clean">
+        <MSBuild Projects="atlas_generator\HistoricResourcesAtlasGenerator.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="HistoricResourcesAtlasGenerator:Make">
+        <MSBuild Projects="atlas_generator\HistoricResourcesAtlasGenerator.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="MuniParcelFilter;HistoricResourcesAtlasGenerator"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="MuniParcelFilter:Clean;HistoricResourcesAtlasGenerator:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="MuniParcelFilter:Make;HistoricResourcesAtlasGenerator:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

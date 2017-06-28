@@ -1,0 +1,113 @@
+object Form18: TForm18
+  Left = 0
+  Top = 0
+  Caption = 'Form18'
+  ClientHeight = 481
+  ClientWidth = 572
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [dkDesktop, dkiPhone, dkiPad]
+  OnActivate = Button1Click
+  DesignerMobile = False
+  DesignerWidth = 0
+  DesignerHeight = 0
+  DesignerDeviceName = ''
+  DesignerOrientation = 0
+  DesignerOSVersion = ''
+  object Memo1: TMemo
+    Touch.InteractiveGestures = [igPan, igLongTap, igDoubleTap]
+    Height = 385.000000000000000000
+    Position.X = 16.000000000000000000
+    Position.Y = 24.000000000000000000
+    TabOrder = 0
+    Width = 529.000000000000000000
+  end
+  object Label1: TLabel
+    Height = 17.000000000000000000
+    Position.X = 16.000000000000000000
+    Position.Y = 8.000000000000000000
+    Text = 'unlocated parcels'
+    Width = 120.000000000000000000
+  end
+  object FDConnection: TFDConnection
+    Params.Strings = (
+      'DriverID=SQLite'
+      
+        'Database=C:\Users\David Hawk\Documents\GitHub\HistoricResourcesI' +
+        'nventory\db\HistoricInventory.db')
+    ConnectedStoredUsage = [auDesignTime]
+    Connected = True
+    LoginPrompt = False
+    Left = 80
+    Top = 96
+  end
+  object FDPhysSQLiteDriverLink: TFDPhysSQLiteDriverLink
+    Left = 288
+    Top = 88
+  end
+  object Query5: TFDQuery
+    Connection = FDConnection
+    Left = 152
+    Top = 192
+  end
+  object FDGUIxWaitCursor: TFDGUIxWaitCursor
+    Provider = 'FMX'
+    Left = 432
+    Top = 88
+  end
+  object NGParcelTable: TFDTable
+    ActiveStoredUsage = [auDesignTime]
+    Connection = FDConnection
+    UpdateOptions.UpdateTableName = 'muni_parcels'
+    TableName = 'muni_parcels'
+    Left = 136
+    Top = 360
+    object NGParcelTablePIN_COMMON: TFDWideMemoField
+      FieldName = 'PIN_COMMON'
+      Origin = 'PIN_COMMON'
+      BlobType = ftWideMemo
+    end
+  end
+  object ResourcesTable: TFDTable
+    ActiveStoredUsage = [auDesignTime]
+    IndexFieldNames = 'ResourceId'
+    Connection = FDConnection
+    UpdateOptions.UpdateTableName = 'Resources'
+    TableName = 'Resources'
+    Left = 216
+    Top = 352
+    object ResourcesTableResourceId: TFDAutoIncField
+      FieldName = 'ResourceId'
+      Origin = 'ResourceId'
+      ProviderFlags = [pfInWhere, pfInKey]
+      ReadOnly = True
+    end
+    object ResourcesTableClassification: TFDWideMemoField
+      FieldName = 'Classification'
+      Origin = 'Classification'
+      BlobType = ftWideMemo
+    end
+    object ResourcesTableStreetNo: TFDWideMemoField
+      FieldName = 'StreetNo'
+      Origin = 'StreetNo'
+      BlobType = ftWideMemo
+    end
+    object ResourcesTableStreetName: TFDWideMemoField
+      FieldName = 'StreetName'
+      Origin = 'StreetName'
+      BlobType = ftWideMemo
+    end
+    object ResourcesTableGISx: TFloatField
+      FieldName = 'GISx'
+      Origin = 'GISx'
+    end
+    object ResourcesTableGISy: TFloatField
+      FieldName = 'GISy'
+      Origin = 'GISy'
+    end
+    object ResourcesTableNonPointResource: TIntegerField
+      FieldName = 'NonPointResource'
+      Origin = 'NonPointResource'
+    end
+  end
+end
