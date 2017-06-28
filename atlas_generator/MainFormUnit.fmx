@@ -1,4 +1,4 @@
-object Form18: TForm18
+object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'Form18'
@@ -38,30 +38,25 @@ object Form18: TForm18
     ConnectedStoredUsage = [auDesignTime]
     Connected = True
     LoginPrompt = False
-    Left = 80
-    Top = 96
+    Left = 40
+    Top = 48
   end
   object FDPhysSQLiteDriverLink: TFDPhysSQLiteDriverLink
-    Left = 288
-    Top = 88
-  end
-  object Query5: TFDQuery
-    Connection = FDConnection
     Left = 152
-    Top = 192
+    Top = 48
   end
   object FDGUIxWaitCursor: TFDGUIxWaitCursor
     Provider = 'FMX'
-    Left = 432
-    Top = 88
+    Left = 272
+    Top = 48
   end
   object NGParcelTable: TFDTable
     ActiveStoredUsage = [auDesignTime]
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'muni_parcels'
     TableName = 'muni_parcels'
-    Left = 136
-    Top = 360
+    Left = 40
+    Top = 112
     object NGParcelTablePIN_COMMON: TFDWideMemoField
       FieldName = 'PIN_COMMON'
       Origin = 'PIN_COMMON'
@@ -74,8 +69,8 @@ object Form18: TForm18
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'Resources'
     TableName = 'Resources'
-    Left = 216
-    Top = 352
+    Left = 152
+    Top = 112
     object ResourcesTableResourceId: TFDAutoIncField
       FieldName = 'ResourceId'
       Origin = 'ResourceId'
@@ -108,6 +103,63 @@ object Form18: TForm18
     object ResourcesTableNonPointResource: TIntegerField
       FieldName = 'NonPointResource'
       Origin = 'NonPointResource'
+    end
+  end
+  object AtlasBitmapsTable: TFDTable
+    Connection = FDConnection
+    UpdateOptions.UpdateTableName = 'AtlasBitmaps'
+    TableName = 'AtlasBitmaps'
+    Left = 272
+    Top = 112
+    object AtlasBitmapsTableLayoutId: TIntegerField
+      FieldName = 'LayoutId'
+      Origin = 'LayoutId'
+    end
+    object AtlasBitmapsTableBmpNo: TIntegerField
+      FieldName = 'BmpNo'
+      Origin = 'BmpNo'
+    end
+    object AtlasBitmapsTablePageNo: TIntegerField
+      FieldName = 'PageNo'
+      Origin = 'PageNo'
+    end
+    object AtlasBitmapsTablePagePosX: TIntegerField
+      FieldName = 'PagePosX'
+      Origin = 'PagePosX'
+    end
+    object AtlasBitmapsTablePagePosY: TIntegerField
+      FieldName = 'PagePosY'
+      Origin = 'PagePosY'
+    end
+    object AtlasBitmapsTableCaption: TFDWideMemoField
+      FieldName = 'Caption'
+      Origin = 'Caption'
+      BlobType = ftWideMemo
+    end
+    object AtlasBitmapsTableUL_GISx: TFloatField
+      FieldName = 'UL_GISx'
+      Origin = 'UL_GISx'
+    end
+    object AtlasBitmapsTableUL_GISy: TFloatField
+      FieldName = 'UL_GISy'
+      Origin = 'UL_GISy'
+    end
+    object AtlasBitmapsTableLR_GISx: TFloatField
+      FieldName = 'LR_GISx'
+      Origin = 'LR_GISx'
+    end
+    object AtlasBitmapsTableLR_GISy: TFloatField
+      FieldName = 'LR_GISy'
+      Origin = 'LR_GISy'
+    end
+    object AtlasBitmapsTableDimensionKind: TFDWideMemoField
+      FieldName = 'DimensionKind'
+      Origin = 'DimensionKind'
+      BlobType = ftWideMemo
+    end
+    object AtlasBitmapsTableDimension: TFloatField
+      FieldName = 'Dimension'
+      Origin = 'Dimension'
     end
   end
 end

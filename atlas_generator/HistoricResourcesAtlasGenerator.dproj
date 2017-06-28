@@ -99,7 +99,7 @@
         </DelphiCompile>
         <DCCReference Include="..\lib\FastMM4.pas"/>
         <DCCReference Include="MainFormUnit.pas">
-            <Form>Form18</Form>
+            <Form>MainForm</Form>
         </DCCReference>
         <DCCReference Include="..\lib\clipper.pas"/>
         <DCCReference Include="..\lib\Utils.pas"/>
