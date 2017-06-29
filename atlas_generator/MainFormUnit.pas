@@ -92,12 +92,14 @@ type
     AtlasBitmapsTablePagePosX: TIntegerField;
     AtlasBitmapsTablePagePosY: TIntegerField;
     AtlasBitmapsTableCaption: TFDWideMemoField;
-    AtlasBitmapsTableUL_GISx: TFloatField;
-    AtlasBitmapsTableUL_GISy: TFloatField;
-    AtlasBitmapsTableLR_GISx: TFloatField;
-    AtlasBitmapsTableLR_GISy: TFloatField;
     AtlasBitmapsTableDimensionKind: TFDWideMemoField;
     AtlasBitmapsTableDimension: TFloatField;
+    Button1: TButton;
+    AtlasBitmapsTableDetail: TIntegerField;
+    AtlasBitmapsTableLL_GISx: TFloatField;
+    AtlasBitmapsTableLL_GISy: TFloatField;
+    AtlasBitmapsTableUR_GISx: TFloatField;
+    AtlasBitmapsTableUR_GISy: TFloatField;
     procedure Button1Click(Sender: TObject);
   private
       parcels: TArcViewShapeFile;
@@ -113,10 +115,14 @@ type
          array of
             record
                bmp_no: integer;
-               ul_GISx: real;
-               ul_GISy: real;
-               lr_GISx: real;
-               lr_GISy: real;
+//               ul_GISx: real;
+//               ul_GISy: real;
+//               lr_GISx: real;
+//               lr_GISy: real;
+               ll_GISx: real;
+               ll_GISy: real;
+               ur_GISx: real;
+               ur_GISy: real;
                bmp_width_in_pixels: integer;
                bmp_height_in_pixels: integer
             end;
@@ -474,7 +480,6 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
    var
       i: integer;
       c: t_resource_classification;
-var x: real;
    begin    // draw_map_bitmap
       pixels_per_gis_unit := bmp_image_width_in_pixels / (current_page_border.Part[0,1].x - current_page_border.Part[0,0].x);
 
@@ -494,6 +499,7 @@ var x: real;
 //         draw_railroad ('PomeroyRR');
 //         draw_railroad ('WilmingtonAndWesternRR');
       draw_railroad ('Historic_Rails');
+      draw_railroad ('Active_Rails');
       for c := Low(t_resource_classification) to High(t_resource_classification) do
          for i := 1 to Length(resources)-1 do
             with resources[i] do
@@ -624,9 +630,9 @@ procedure TMainForm.Button1Click(Sender: TObject);
       AtlasBitmapsTable.Active := true;
       while not AtlasBitmapsTable.Eof do
          begin
-            aspect_ratio := (AtlasBitmapsTableLR_GISx.AsFloat - AtlasBitmapsTableUL_GISx.AsFloat)
+            aspect_ratio := (AtlasBitmapsTableUR_GISx.AsFloat - AtlasBitmapsTableLL_GISx.AsFloat)
                             /
-                            (AtlasBitmapsTableUL_GISy.AsFloat - AtlasBitmapsTableLR_GISy.AsFloat);
+                            (AtlasBitmapsTableUR_GISy.AsFloat - AtlasBitmapsTableLL_GISy.AsFloat);
             assert (Length(AtlasBitmapsTableDimensionKind.AsString) = 1);
             bmp_width_in_inches := 0; bmp_height_in_inches := 0;  // to suppress compiler warnings
             case AtlasBitmapsTableDimensionKind.AsString[1] of
@@ -642,15 +648,15 @@ procedure TMainForm.Button1Click(Sender: TObject);
                assert (false, 'invalid TableDimensionKind field value: ' + AtlasBitmapsTableDimensionKind.AsString)
             end;
 
-            pixels_per_gis_unit := bmp_width_in_inches * dpi / (AtlasBitmapsTableLR_GISx.AsFloat - AtlasBitmapsTableUL_GISx.AsFloat);
+            pixels_per_gis_unit := bmp_width_in_inches * dpi / (AtlasBitmapsTableLL_GISx.AsFloat - AtlasBitmapsTableUR_GISx.AsFloat);
 
             i := Length (bitmaps);
             SetLength (bitmaps, i+1);
             bitmaps[i].bmp_no := AtlasBitmapsTableBmpNo.AsInteger;
-            bitmaps[i].ul_GISx := AtlasBitmapsTableUL_GISx.AsFloat;
-            bitmaps[i].ul_GISy := AtlasBitmapsTableUL_GISy.AsFloat;
-            bitmaps[i].lr_GISx := AtlasBitmapsTableLR_GISx.AsFloat;
-            bitmaps[i].lr_GISy := AtlasBitmapsTableLR_GISy.AsFloat;
+            bitmaps[i].ll_GISx := AtlasBitmapsTableLL_GISx.AsFloat;
+            bitmaps[i].ll_GISy := AtlasBitmapsTableLL_GISy.AsFloat;
+            bitmaps[i].ur_GISx := AtlasBitmapsTableUR_GISx.AsFloat;
+            bitmaps[i].ur_GISy := AtlasBitmapsTableUR_GISy.AsFloat;
             bitmaps[i].bmp_width_in_pixels := round (bmp_width_in_inches * dpi);
             bitmaps[i].bmp_height_in_pixels := round (bmp_height_in_inches * dpi);
 
@@ -662,11 +668,16 @@ procedure TMainForm.Button1Click(Sender: TObject);
          with bitmaps[i] do
             begin
                current_page_border.Clear;
-               current_page_border.Add (ul_GISx, ul_GISy);
-               current_page_border.Add (lr_GISx, ul_GISy);
-               current_page_border.Add (lr_GISx, lr_GISy);
-               current_page_border.Add (ul_GISx, lr_GISy);
-               current_page_border.Add (ul_GISx, ul_GISy);
+//               current_page_border.Add (ul_GISx, ul_GISy);
+//               current_page_border.Add (lr_GISx, ul_GISy);
+//               current_page_border.Add (lr_GISx, lr_GISy);
+//               current_page_border.Add (ul_GISx, lr_GISy);
+//               current_page_border.Add (ul_GISx, ul_GISy);
+               current_page_border.Add (ll_GISx, ur_GISy);
+               current_page_border.Add (ur_GISx, ur_GISy);
+               current_page_border.Add (ur_GISx, ll_GISy);
+               current_page_border.Add (ll_GISx, ll_GISy);
+               current_page_border.Add (ll_GISx, ur_GISy);
                draw_map_bitmap (bmp_no, bmp_width_in_pixels, bmp_height_in_pixels);
             end;
 
