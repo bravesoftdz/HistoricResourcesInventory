@@ -110,7 +110,7 @@ object MainForm: TMainForm
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'AtlasBitmaps'
     TableName = 'AtlasBitmaps'
-    Left = 264
+    Left = 376
     Top = 296
     object AtlasBitmapsTableLayoutId: TIntegerField
       FieldName = 'LayoutId'
@@ -161,6 +161,36 @@ object MainForm: TMainForm
     object AtlasBitmapsTableUR_GISy: TFloatField
       FieldName = 'UR_GISy'
       Origin = 'UR_GISy'
+    end
+  end
+  object AtlasLayoutsTable: TFDTable
+    IndexFieldNames = 'LayoutId'
+    Connection = FDConnection
+    UpdateOptions.UpdateTableName = 'AtlasLayouts'
+    TableName = 'AtlasLayouts'
+    Left = 264
+    Top = 296
+    object AtlasLayoutsTableLayoutId: TFDAutoIncField
+      FieldName = 'LayoutId'
+      Origin = 'LayoutId'
+      ProviderFlags = [pfInWhere, pfInKey]
+    end
+    object AtlasLayoutsTableDescription: TFDWideMemoField
+      FieldName = 'Description'
+      Origin = 'Description'
+      BlobType = ftWideMemo
+    end
+    object AtlasLayoutsTableDPI: TIntegerField
+      FieldName = 'DPI'
+      Origin = 'DPI'
+    end
+    object AtlasLayoutsTableResourceFontSize: TIntegerField
+      FieldName = 'ResourceFontSize'
+      Origin = 'ResourceFontSize'
+    end
+    object AtlasLayoutsTableDetailCutoutFontSize: TIntegerField
+      FieldName = 'DetailCutoutFontSize'
+      Origin = 'DetailCutoutFontSize'
     end
   end
 end

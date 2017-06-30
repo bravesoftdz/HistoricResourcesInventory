@@ -13,8 +13,6 @@ uses
   FireDAC.Comp.UI, FMX.Layouts, FMX.Memo, FMX.ExtCtrls, ArcViewFileUnit;
 
 const
-   dpi = 300;
-
    // color combinations courtesy of colorbrewer2.org, Color Advice For Cartography
    //   http://colorbrewer2.org/#type=sequential&scheme=OrRd&n=4
    //   this color combination is “colorblind safe”, “printer friendly” and “photocopy safe”.
@@ -27,17 +25,13 @@ const
    nonintact_color = TAlphaColors.Yellow;
    archaeological_site_color = TAlphaColors.Darkslategray;
 
-   resource_circle_font_size = 25;
-   detail_font_size = 100;
-
    // constants for drawing resource id circles
    status_circle_radius_multiplier = 0.4875;
    ring_circle_radius_multiplier = 1.15;
    marker_radius_multiplier = 1.25;
 
-   tie_width_in_pixels = dpi div 10;
-   tie_spacing_in_pixels = dpi div 5;
-
+   tie_width_dpi_divisor = 10;
+   tie_spacing_dpi_divisor = 5;
 
 type
    t_resource_classification =
@@ -99,6 +93,12 @@ type
     AtlasBitmapsTableLL_GISy: TFloatField;
     AtlasBitmapsTableUR_GISx: TFloatField;
     AtlasBitmapsTableUR_GISy: TFloatField;
+    AtlasLayoutsTable: TFDTable;
+    AtlasLayoutsTableLayoutId: TFDAutoIncField;
+    AtlasLayoutsTableDescription: TFDWideMemoField;
+    AtlasLayoutsTableDPI: TIntegerField;
+    AtlasLayoutsTableResourceFontSize: TIntegerField;
+    AtlasLayoutsTableDetailCutoutFontSize: TIntegerField;
     procedure Button1Click(Sender: TObject);
   private
       parcels: TArcViewShapeFile;
@@ -124,6 +124,10 @@ type
                bmp_height_in_pixels: integer
             end;
       resources: array of t_ordinance_resource;
+      dpi: integer;
+      resource_circle_font_size: integer;
+      detail_font_size: integer;
+
     procedure draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
   public
     { Public declarations }
@@ -305,10 +309,15 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
       end;
 
    procedure draw_railroad (fn: string);
+      var
+         tie_width_in_pixels: integer;
+         tie_spacing_in_pixels: integer;
+
       function segment_length (p1, p2: TGISPoint): real;
          begin
             result := sqrt (sqr(p2.x - p1.x) + sqr(p2.Y - p1.y))
          end;
+
       procedure draw_tie (p: TGISPoint; angle: real {in radians});
          var
             right_angle: real;
@@ -334,6 +343,9 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
          px1, px2: TPointF;
          pg1, pg2: TGISPoint;
       begin
+         tie_width_in_pixels := dpi div tie_width_dpi_divisor;
+         tie_spacing_in_pixels := dpi div tie_spacing_dpi_divisor;
+
          tie_spacing_in_gis_units := tie_spacing_in_pixels / pixels_per_gis_unit;
          old_stroke_thickness := bmp.Canvas.StrokeThickness;
          old_stroke_color := bmp.Canvas.Stroke.Color;
@@ -565,6 +577,8 @@ procedure TMainForm.Button1Click(Sender: TObject);
          Memo1.Lines.Add (format ('%d class %d resources', [count, ord(_classification)]))
       end;
 
+   const
+      layout_id = 1;
    var
       i,r,p: integer;
       pt: TGISPoint;
@@ -657,8 +671,16 @@ procedure TMainForm.Button1Click(Sender: TObject);
       set_parcel_color (c_national_nonintact, class_I_color);
       set_parcel_color (c_national_intact, class_I_color);
 
+      AtlasLayoutsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
+      AtlasLayoutsTable.Filtered := true;
+      AtlasLayoutsTable.Active := true;
+      dpi := AtlasLayoutsTableDPI.AsInteger;
+      resource_circle_font_size := AtlasLayoutsTableResourceFontSize.AsInteger;
+      detail_font_size := AtlasLayoutsTableDetailCutoutFontSize.AsInteger;
+      AtlasLayoutsTable.Active := false;
+
       SetLength (bitmaps, 0);
-      AtlasBitmapsTable.Filter := 'LayoutId=' + IntToStr(1);
+      AtlasBitmapsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
       AtlasBitmapsTable.Filtered := true;
       AtlasBitmapsTable.Active := true;
       while not AtlasBitmapsTable.Eof do
