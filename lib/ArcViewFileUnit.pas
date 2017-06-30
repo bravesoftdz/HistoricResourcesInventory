@@ -184,6 +184,8 @@ type
          bounding_box: TArcViewPolygonShape;   // only available if read from file
          constructor CreateFromFile (var f: file; content_length: integer);
             override;
+         function width: real;
+         function height: real;
          property bounding_box_Xmin: double read r_bounding_box_Xmin write w_bounding_box_Xmin;
          property bounding_box_Ymin: double read r_bounding_box_Ymin write w_bounding_box_Ymin;
          property bounding_box_Xmax: double read r_bounding_box_Xmax write w_bounding_box_Xmax;
@@ -252,6 +254,7 @@ type
             overload;
          procedure Add (x, y: real);
             overload;
+         procedure InitAsBox (ll, ur: TGISPoint);
          function CreateCopy: TArcViewShapeBaseClass;
             override;
          function shape_type: integer;
@@ -289,6 +292,8 @@ type
             override;
          procedure WriteToFile (file_name: string);
       end;
+
+function GISPoint (x, y: real): TGISPoint;
 
 IMPLEMENTATION
 
@@ -938,6 +943,16 @@ destructor TArcViewShapeWithBoundingBoxBaseClass.Destroy;
       inherited
    end;
 
+function TArcViewShapeWithBoundingBoxBaseClass.width: real;
+   begin
+      result := r_bounding_box_Xmax - r_bounding_box_Xmin
+   end;
+
+function TArcViewShapeWithBoundingBoxBaseClass.height: real;
+   begin
+      result := r_bounding_box_Ymax - r_bounding_box_Ymin
+   end;
+
 function TArcViewShapeWithBoundingBoxBaseClass.r_bounding_box_Xmin: double;
    begin
       result := r_little_end_double (4)
@@ -1173,6 +1188,16 @@ constructor TArcViewPolygonShape.CreateEmpty;
       Create (36);    // alloc space for bounding box
       SetLength (Part, 1);
       SetLength (iPart, 1)
+   end;
+
+procedure TArcViewPolygonShape.InitAsBox (ll, ur: TGISPoint);
+   begin
+      Clear;
+      Add (ll.x, ur.y);
+      Add (ur.x, ur.y);
+      Add (ur.x, ll.y);
+      Add (ll.x, ll.y);
+      Add (ll.x, ur.y)
    end;
 
 procedure TArcViewPolygonShape.Clear;
@@ -1578,6 +1603,12 @@ procedure TArcViewShapeFile.w_shape (idx: integer; val: TArcViewShapeBaseClass);
       assert ((0 < idx) and (idx <= number_of_shapes));
       assert (file_header.shape_type = val.shape_type);
       f_shapes[idx] := val
+   end;
+
+function GISPoint (x, y: real): TGISPoint;
+   begin
+      result.x := x;
+      result.y := y
    end;
 
 END.

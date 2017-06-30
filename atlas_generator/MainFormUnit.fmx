@@ -19,20 +19,13 @@ object MainForm: TMainForm
     Position.X = 16.000000000000000000
     Position.Y = 216.000000000000000000
     TabOrder = 0
-    Width = 529.000000000000000000
-  end
-  object Label1: TLabel
-    Height = 17.000000000000000000
-    Position.X = 16.000000000000000000
-    Position.Y = 8.000000000000000000
-    Text = 'unlocated parcels'
-    Width = 120.000000000000000000
+    Width = 545.000000000000000000
   end
   object Button1: TButton
     Height = 22.000000000000000000
-    Position.X = 424.000000000000000000
-    Position.Y = 48.000000000000000000
-    TabOrder = 2
+    Position.X = 16.000000000000000000
+    Position.Y = 176.000000000000000000
+    TabOrder = 1
     Text = 'Generate'
     Width = 80.000000000000000000
     OnClick = Button1Click
@@ -46,25 +39,25 @@ object MainForm: TMainForm
     ConnectedStoredUsage = [auDesignTime]
     Connected = True
     LoginPrompt = False
-    Left = 40
-    Top = 48
+    Left = 32
+    Top = 232
   end
   object FDPhysSQLiteDriverLink: TFDPhysSQLiteDriverLink
-    Left = 152
-    Top = 48
+    Left = 144
+    Top = 232
   end
   object FDGUIxWaitCursor: TFDGUIxWaitCursor
     Provider = 'FMX'
-    Left = 272
-    Top = 48
+    Left = 264
+    Top = 232
   end
   object NGParcelTable: TFDTable
     ActiveStoredUsage = [auDesignTime]
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'muni_parcels'
     TableName = 'muni_parcels'
-    Left = 40
-    Top = 112
+    Left = 32
+    Top = 296
     object NGParcelTablePIN_COMMON: TFDWideMemoField
       FieldName = 'PIN_COMMON'
       Origin = 'PIN_COMMON'
@@ -77,8 +70,8 @@ object MainForm: TMainForm
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'Resources'
     TableName = 'Resources'
-    Left = 152
-    Top = 112
+    Left = 144
+    Top = 296
     object ResourcesTableResourceId: TFDAutoIncField
       FieldName = 'ResourceId'
       Origin = 'ResourceId'
@@ -117,15 +110,11 @@ object MainForm: TMainForm
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'AtlasBitmaps'
     TableName = 'AtlasBitmaps'
-    Left = 272
-    Top = 112
+    Left = 264
+    Top = 296
     object AtlasBitmapsTableLayoutId: TIntegerField
       FieldName = 'LayoutId'
       Origin = 'LayoutId'
-    end
-    object AtlasBitmapsTableBmpNo: TIntegerField
-      FieldName = 'BmpNo'
-      Origin = 'BmpNo'
     end
     object AtlasBitmapsTablePageNo: TIntegerField
       FieldName = 'PageNo'

@@ -78,10 +78,6 @@ object Form20: TForm20
       FieldName = 'LayoutId'
       Origin = 'LayoutId'
     end
-    object AtlasBitmapsTableBmpNo: TIntegerField
-      FieldName = 'BmpNo'
-      Origin = 'BmpNo'
-    end
     object AtlasBitmapsTablePageNo: TIntegerField
       FieldName = 'PageNo'
       Origin = 'PageNo'
