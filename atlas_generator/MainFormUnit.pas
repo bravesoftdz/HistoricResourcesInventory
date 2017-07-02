@@ -33,6 +33,10 @@ const
    tie_width_dpi_divisor = 10;
    tie_spacing_dpi_divisor = 5;
 
+   tic_mark_interval = 1000;   // in GIS units (ft)
+
+   border_stroke_thickness = 10;
+
 type
    t_resource_classification =
       (c_50plus_archaeological,
@@ -53,14 +57,22 @@ type
 //            pin: string;
          gisx, gisy: real;
          non_point_resource: boolean;
-//            map_page, photo_page: integer;
+//            photo_page: integer;
 //            photo_fn: string;
          addr911: string;
          tax_parcel_idx: integer;
          ring_color: TAlphaColor;
          status_color: TAlphaColor;
          classification: t_resource_classification;
+         map_pages: string;
+         map_grid_location: string;
          function set_classification (s: string): boolean;
+      end;
+
+type
+   tMapLayout =
+      record
+         border_stroke_thickness: real;
       end;
 
 type
@@ -88,6 +100,7 @@ type
     AtlasBitmapsTableDimensionKind: TFDWideMemoField;
     AtlasBitmapsTableDimension: TFloatField;
     Button1: TButton;
+    AtlasBitmapsTableMapId: TFDWideMemoField;
     AtlasBitmapsTableDetail: TIntegerField;
     AtlasBitmapsTableLL_GISx: TFloatField;
     AtlasBitmapsTableLL_GISy: TFloatField;
@@ -101,11 +114,15 @@ type
     AtlasLayoutsTableDetailCutoutFontSize: TIntegerField;
     AtlasLayoutsTableBorder: TFloatField;
     AtlasLayoutsTableBorderFontSize: TIntegerField;
+    ResourceMapGridLocationsTable: TFDTable;
+    ResourceMapGridLocationsTableResourceId: TIntegerField;
+    ResourceMapGridLocationsTableMapGridLocation: TFDWideMemoField;
+    Query: TFDQuery;
     procedure Button1Click(Sender: TObject);
   private
       parcels: TArcViewShapeFile;
       muni_border: TArcViewPolygonShape;
-      current_page_border: TArcViewPolygonShape;
+      grid_origin: TGISPoint;  { upper left corner }
       parcel_data:
          array {1..N} of     // 0th element allocated but not used
             record
@@ -116,6 +133,7 @@ type
          array of
             record
                caption: string;
+               map_id: string;
                page_no: integer;
                detail: boolean;
                ll_GISx: real;
@@ -127,12 +145,16 @@ type
             end;
       resources: array of tResource;
       dpi: integer;
-      border: real;  // in inches
+      border_width: real;  // in inches
       border_font_size: integer;
       resource_circle_font_size: integer;
       detail_font_size: integer;
 
-    procedure draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
+      current_page_border: TArcViewPolygonShape;
+
+    function map_x_grid_string (x: real {GIS units}): string;
+    function map_y_grid_string (y: real {GIS units}): string;
+    procedure draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
   public
     { Public declarations }
   end;
@@ -147,21 +169,6 @@ IMPLEMENTATION
 uses
    Utils, FMX.Printer, Winapi.Windows, System.UIConsts, fmx.objects,
    System.Math;
-
-var
-   activated: boolean;
-
-function map_x_grid_string (i: integer): string;
-   begin
-      if i < 26 then
-         result := chr(ord('A')+i)
-      else
-         begin
-            result := '..';
-            result [1] := chr(ord('A')+(i div 26)-1);
-            result [2] := chr(ord('A')+(i mod 26))
-         end
-   end;
 
 function tResource.set_classification (s: string): boolean;
    begin
@@ -229,7 +236,27 @@ function tResource.set_classification (s: string): boolean;
          end
    end;
 
-procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
+function TMainForm.map_x_grid_string (x: real {GISunits}): string;
+   var
+      i: integer;
+   begin
+      i := round (x - grid_origin.x) div tic_mark_interval;
+      if i < 26 then
+         result := chr(ord('A')+i)
+      else
+         begin
+            result := '..';
+            result [1] := chr(ord('A')+(i div 26)-1);
+            result [2] := chr(ord('A')+(i mod 26))
+         end
+   end;
+
+function TMainForm.map_y_grid_string (y: real {GIS units}): string;
+   begin
+      result := IntToStr (1 + Floor ((grid_origin.y - y) / tic_mark_interval))
+   end;
+
+procedure TMainForm.draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
    var
       bmp: FMX.Graphics.TBitmap;
       pixels_per_gis_unit: real;
@@ -239,12 +266,20 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
 
    function pixelX (gisX: real): integer;   // convert gisX to pixelX on current page
       begin
-         pixelX := round ((border*dpi) + (gisX - current_page_border.Part[0,0].x) * pixels_per_gis_unit)
+         pixelX := round ((border_width*dpi) + (gisX - current_page_border.Part[0,0].x) * pixels_per_gis_unit)
       end;
 
    function pixelY (gisY: real): integer;   // convert gisY to pixelY on current page
       begin
-         result := round ((border*dpi) + (current_page_border.Part[0,0].y - gisY) * pixels_per_gis_unit)
+         result := round ((border_width*dpi) + (current_page_border.Part[0,0].y - gisY) * pixels_per_gis_unit)
+      end;
+
+   function RectFforCenteredText (center: TPointF {pixels}; s: string): TRectF;
+      begin
+         result.Top := center.y - bmp.Canvas.TextHeight(s);
+         result.Bottom := center.y + bmp.Canvas.TextHeight(s);
+         result.Left := center.x - bmp.Canvas.TextWidth(s);
+         result.Right := center.x + bmp.Canvas.TextWidth(s)
       end;
 
    procedure draw_polygons (polys: TArcViewShapeFile; color_parcel: boolean);
@@ -425,81 +460,75 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
          rect: TRectF;
          fudge_down: real;
          fudge_right: real;
-         gispt: TGISPoint;
          pt1, pt2: TPointF;
          old_stroke_thickness: single;
       begin   // draw_resource_marker
-         gispt.X := gisx;
-         gispt.Y := gisy;
-         if current_page_border.contains (gispt) then
-            begin
-               // draw black outer ring
-               rect.Left := pixelX(gisx)-marker_radius;
-               rect.Top := pixelY(gisy)-marker_radius;
-               rect.Right := pixelX(gisx)+marker_radius;
-               rect.Bottom := pixelY(gisy)+marker_radius;
+         // draw black outer ring
+         rect.Left := pixelX(gisx)-marker_radius;
+         rect.Top := pixelY(gisy)-marker_radius;
+         rect.Right := pixelX(gisx)+marker_radius;
+         rect.Bottom := pixelY(gisy)+marker_radius;
+         bmp.Canvas.Fill.Color := TAlphaColors.Black;
+         bmp.Canvas.FillEllipse (rect, 1);
+
+         // draw classification ring inside outer ring
+         rect.Left := pixelX(gisx)-ring_circle_radius;
+         rect.Top := pixelY(gisy)-ring_circle_radius;
+         rect.Right := pixelX(gisx)+ring_circle_radius;
+         rect.Bottom := pixelY(gisy)+ring_circle_radius;
+         bmp.Canvas.Fill.Color := resources[id].ring_color;
+         bmp.Canvas.FillEllipse (rect, 1);
+
+         // draw status circle inside classification ring
+         rect.Left := pixelX(gisx)-status_circle_radius;
+         rect.Top := pixelY(gisy)-status_circle_radius;
+         rect.Right := pixelX(gisx)+status_circle_radius;
+         rect.Bottom := pixelY(gisy)+status_circle_radius;
+         bmp.Canvas.Fill.Color := resources[id].status_color;
+         bmp.Canvas.FillEllipse (rect, 1);
+         bmp.canvas.Stroke.Kind := TBrushKind.bkSolid;
+         bmp.canvas.StrokeThickness := 1;
+
+         if resources[id].status_color = archaeological_site_color then
+            begin   // draw X to denote gone
+               old_stroke_thickness := bmp.Canvas.StrokeThickness;
+               bmp.Canvas.StrokeThickness := bmp.Canvas.StrokeThickness * 3;
+
+               pt1.X := pixelX(gisx)-marker_radius;
+               pt1.Y := pixelY(gisy)-marker_radius;
+               pt2.X := pixelX(gisx)+marker_radius;
+               pt2.Y := pixelY(gisy)+marker_radius;
+               bmp.Canvas.DrawLine (pt1, pt2, 1);
+
+               pt1.X := pixelX(gisx)+marker_radius;
+               pt1.Y := pixelY(gisy)-marker_radius;
+               pt2.X := pixelX(gisx)-marker_radius;
+               pt2.Y := pixelY(gisy)+marker_radius;
+               bmp.Canvas.DrawLine (pt1, pt2, 1);
+
+               bmp.Canvas.StrokeThickness := old_stroke_thickness
+            end;
+
+         // write resource id number
+         s := IntToStr(id);
+         case resources[id].status_color of
+            intact_color:
+               bmp.Canvas.Fill.Color := TAlphaColors.White;
+            nonintact_color:
                bmp.Canvas.Fill.Color := TAlphaColors.Black;
-               bmp.Canvas.FillEllipse (rect, 1);
+            archaeological_site_color:
+               bmp.Canvas.Fill.Color := TAlphaColors.White;
+         else
+            assert(false)
+         end;
 
-               // draw classification ring inside outer ring
-               rect.Left := pixelX(gisx)-ring_circle_radius;
-               rect.Top := pixelY(gisy)-ring_circle_radius;
-               rect.Right := pixelX(gisx)+ring_circle_radius;
-               rect.Bottom := pixelY(gisy)+ring_circle_radius;
-               bmp.Canvas.Fill.Color := resources[id].ring_color;
-               bmp.Canvas.FillEllipse (rect, 1);
-
-               // draw status circle inside classification ring
-               rect.Left := pixelX(gisx)-status_circle_radius;
-               rect.Top := pixelY(gisy)-status_circle_radius;
-               rect.Right := pixelX(gisx)+status_circle_radius;
-               rect.Bottom := pixelY(gisy)+status_circle_radius;
-               bmp.Canvas.Fill.Color := resources[id].status_color;
-               bmp.Canvas.FillEllipse (rect, 1);
-               bmp.canvas.Stroke.Kind := TBrushKind.bkSolid;
-               bmp.canvas.StrokeThickness := 1;
-
-               if resources[id].status_color = archaeological_site_color then
-                  begin   // draw X to denote gone
-                     old_stroke_thickness := bmp.Canvas.StrokeThickness;
-                     bmp.Canvas.StrokeThickness := bmp.Canvas.StrokeThickness * 3;
-
-                     pt1.X := pixelX(gisx)-marker_radius;
-                     pt1.Y := pixelY(gisy)-marker_radius;
-                     pt2.X := pixelX(gisx)+marker_radius;
-                     pt2.Y := pixelY(gisy)+marker_radius;
-                     bmp.Canvas.DrawLine (pt1, pt2, 1);
-
-                     pt1.X := pixelX(gisx)+marker_radius;
-                     pt1.Y := pixelY(gisy)-marker_radius;
-                     pt2.X := pixelX(gisx)-marker_radius;
-                     pt2.Y := pixelY(gisy)+marker_radius;
-                     bmp.Canvas.DrawLine (pt1, pt2, 1);
-
-                     bmp.Canvas.StrokeThickness := old_stroke_thickness
-                  end;
-
-               // write resource id number
-               s := IntToStr(id);
-               case resources[id].status_color of
-                  intact_color:
-                     bmp.Canvas.Fill.Color := TAlphaColors.White;
-                  nonintact_color:
-                     bmp.Canvas.Fill.Color := TAlphaColors.Black;
-                  archaeological_site_color:
-                     bmp.Canvas.Fill.Color := TAlphaColors.White;
-               else
-                  assert(false)
-               end;
-
-               fudge_down := bmp.Canvas.TextHeight(s) * 0.065;
-               fudge_right := bmp.Canvas.TextWidth(s) * 0.02;
-               rect.Left := pixelX(gisx) - (bmp.Canvas.TextWidth(s) / 2) + fudge_right;
-               rect.Top := pixelY(gisy) - (bmp.Canvas.TextHeight(s) / 2) + fudge_down;
-               rect.Right := pixelX(gisx) + (bmp.Canvas.TextWidth(s) / 2) + fudge_right;
-               rect.Bottom := pixelY(gisy) + (bmp.Canvas.TextHeight(s) / 2) + fudge_down;
-               bmp.Canvas.FillText(rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
-            end
+         fudge_down := bmp.Canvas.TextHeight(s) * 0.065;
+         fudge_right := bmp.Canvas.TextWidth(s) * 0.02;
+         rect.Left := pixelX(gisx) - (bmp.Canvas.TextWidth(s) / 2) + fudge_right;
+         rect.Top := pixelY(gisy) - (bmp.Canvas.TextHeight(s) / 2) + fudge_down;
+         rect.Right := pixelX(gisx) + (bmp.Canvas.TextWidth(s) / 2) + fudge_right;
+         rect.Bottom := pixelY(gisy) + (bmp.Canvas.TextHeight(s) / 2) + fudge_down;
+         bmp.Canvas.FillText(rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
       end;    // draw_resource_marker
 
    procedure draw_detail_boxes;
@@ -536,101 +565,123 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
                   end
       end;
 
-   procedure draw_border;
-      const
-         tic_mark_interval = 1000;   // in GIS units (ft)
+   procedure draw_map_grid;
       var
-         rect: TRectF;
+         x, y: real;
+      begin
+         x := grid_origin.x;
+         while x < current_page_border.bounding_box_Xmax do
+            begin
+               bmp.Canvas.DrawLine (PointF (PixelX(x), PixelY(current_page_border.bounding_box_Ymin)),
+                                    PointF (PixelX(x), PixelY(current_page_border.bounding_box_Ymax)),
+                                    1
+                                   );
+               x := x + tic_mark_interval
+            end;
+
+         y := grid_origin.y;
+         while y > current_page_border.bounding_box_Ymin do
+            begin
+               bmp.Canvas.DrawLine (PointF (PixelX(current_page_border.bounding_box_Xmin), PixelY(y)),
+                                    PointF (PixelX(current_page_border.bounding_box_Xmax), PixelY(y)),
+                                    1
+                                   );
+               y := y - tic_mark_interval
+            end
+      end;
+
+   procedure draw_border;
+      var
+         r: TRectF;
          border_width_in_pixels: real;
          x, y: real;
          s: string;
          i: integer;
+         half_border_stroke_thickness: real;
       begin
-         border_width_in_pixels := dpi * border;
+         bmp.Canvas.StrokeThickness := border_stroke_thickness;
+         bmp.Canvas.Stroke.Cap := TStrokeCap.scFlat;
 
+         border_width_in_pixels := dpi * border_width;
+         half_border_stroke_thickness := border_stroke_thickness / 2;
+
+         // white out border area erasing non-clipped stuff that has been drawn there
          bmp.Canvas.Fill.Color := TAlphaColors.White;
-
-         rect.Top := 0;
-         rect.Left := 0;
-         rect.Right := bmp.Width;
-         rect.Bottom := border_width_in_pixels;
-         bmp.Canvas.FillRect (rect, 0, 0, AllCorners, 1);
-
-         rect.Top := 0;
-         rect.Left := 0;
-         rect.Right := border_width_in_pixels;
-         rect.Bottom := bmp.Height;
-         bmp.Canvas.FillRect (rect, 0, 0, AllCorners, 1);
-
-         rect.Top := 0;
-         rect.Left := bmp.Width - border_width_in_pixels;
-         rect.Right := bmp.Width;
-         rect.Bottom := bmp.Height;
-         bmp.Canvas.FillRect (rect, 0, 0, AllCorners, 1);
-
-         rect.Top := bmp.Height - border_width_in_pixels;
-         rect.Left := 0;
-         rect.Right := bmp.Width;
-         rect.Bottom := bmp.Height;
-         bmp.Canvas.FillRect (rect, 0, 0, AllCorners, 1);
+         bmp.Canvas.FillRect (RectF (0, 0, bmp.Width, border_width_in_pixels), 0, 0, AllCorners, 1);
+         bmp.Canvas.FillRect (RectF (0, 0, border_width_in_pixels, bmp.Height), 0, 0, AllCorners, 1);
+         bmp.Canvas.FillRect (RectF (bmp.Width - border_width_in_pixels, 0, bmp.Width, bmp.Height), 0, 0, AllCorners, 1);
+         bmp.Canvas.FillRect (RectF (0, bmp.Height - border_width_in_pixels, bmp.Width, bmp.Height), 0, 0, AllCorners, 1);
 
          bmp.Canvas.Fill.Color := TAlphaColors.Black;
-         bmp.Canvas.StrokeThickness := 10;
 
-         bmp.Canvas.DrawLine (PointF(0, border_width_in_pixels), PointF(bmp.Width, border_width_in_pixels), 1);
-         bmp.Canvas.DrawLine (PointF(0, bmp.Height-border_width_in_pixels), PointF(bmp.Width, bmp.Height-border_width_in_pixels), 1);
-         bmp.Canvas.DrawLine (PointF(border_width_in_pixels, 0), PointF(border_width_in_pixels, bmp.Height), 1);
-         bmp.Canvas.DrawLine (PointF(bmp.Width-border_width_in_pixels, 0), PointF(bmp.Width-border_width_in_pixels, bmp.Height), 1);
+         // draw box around map
+         r := RectF (border_width_in_pixels-half_border_stroke_thickness,
+                     border_width_in_pixels-half_border_stroke_thickness,
+                     bmp.Width-border_width_in_pixels+half_border_stroke_thickness,
+                     bmp.Height-border_width_in_pixels+half_border_stroke_thickness
+                    );
+         bmp.Canvas.DrawRect (r, 0, 0, AllCorners, 1);
 
-         x := dpi * border;
-         i := 0;
-         while x < (bmp.Width - (dpi * border)) do
+         x := grid_origin.x;
+         while x <= current_page_border.bounding_box_Xmax do
             begin
-               s := map_x_grid_string(i);
-               bmp.Canvas.DrawLine (PointF(x,0), PointF(x,border_width_in_pixels), 1);
-               bmp.Canvas.DrawLine (PointF(x,bmp.Height), PointF(x,bmp.Height-border_width_in_pixels), 1);
-
-               rect.Top := (border_width_in_pixels/2) - bmp.Canvas.TextHeight(s);
-               rect.Left := x + (tic_mark_interval * pixels_per_gis_unit / 2) - bmp.Canvas.TextWidth(s);
-               rect.Right := x + (tic_mark_interval * pixels_per_gis_unit / 2) + bmp.Canvas.TextWidth(s);
-               rect.Bottom := (border_width_in_pixels/2) + bmp.Canvas.TextHeight(s);
-               if rect.Right < (bmp.Width - (dpi * border)) then
+               if x >= current_page_border.bounding_box_Xmin then
                   begin
-                     bmp.Canvas.FillText (rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
-
-                     rect.Top := bmp.Height + bmp.Canvas.StrokeThickness - (border_width_in_pixels/2) - bmp.Canvas.TextHeight(s);
-                     rect.Bottom := bmp.Height + bmp.Canvas.StrokeThickness - (border_width_in_pixels/2) + bmp.Canvas.TextHeight(s);
-                     bmp.Canvas.FillText (rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter)
+                     bmp.Canvas.DrawLine (PointF (PixelX(x), 0),
+                                          PointF (PixelX(x), border_width_in_pixels),
+                                          1
+                                         );
+                     bmp.Canvas.DrawLine (PointF (PixelX(x), bmp.Height-border_width_in_pixels),
+                                          PointF (PixelX(x), bmp.Height),
+                                          1
+                                         )
                   end;
-
-               x := x + (tic_mark_interval * pixels_per_gis_unit);
-               i := i + 1
+               x := x + tic_mark_interval
             end;
 
-         y := dpi * border;
-         i := 1;
-         while y < (bmp.Height - (dpi * border)) do
+         x := grid_origin.x + (tic_mark_interval / 2);
+         while x < current_page_border.bounding_box_Xmax do
             begin
-               bmp.Canvas.DrawLine (PointF(0,y), PointF(border_width_in_pixels,y), 1);
-               bmp.Canvas.DrawLine (PointF(bmp.Width,y), PointF(bmp.Width-border_width_in_pixels,y), 1);
-
-               s := IntToStr(i);
-
-               rect.Top := y + (tic_mark_interval * pixels_per_gis_unit / 2) - bmp.Canvas.TextHeight(s);
-               rect.Left := (border_width_in_pixels / 2) - bmp.Canvas.TextWidth(s);
-               rect.Right := (border_width_in_pixels / 2) + bmp.Canvas.TextWidth(s);
-               rect.Bottom := y + (tic_mark_interval * pixels_per_gis_unit / 2) + bmp.Canvas.TextHeight(s);
-               if rect.Right < (bmp.Width - border_width_in_pixels) then
+               s := map_x_grid_string (x);
+               r := RectFforCenteredText (PointF (PixelX(x), (border_width_in_pixels-border_stroke_thickness)/2), s);
+               if (PixelX(current_page_border.bounding_box_Xmin) <= r.Left) and (r.Right <= PixelX(current_page_border.bounding_box_Xmax)) then
                   begin
-                     bmp.Canvas.FillText (rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
-
-                     rect.Left := bmp.Width - (border_width_in_pixels / 2) - bmp.Canvas.TextWidth(s);
-                     rect.Right := bmp.Width - (border_width_in_pixels / 2) + bmp.Canvas.TextWidth(s);
-                     bmp.Canvas.FillText (rect, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter)
+                     bmp.Canvas.FillText (r, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
+                     r := RectFforCenteredText (PointF (PixelX(x), bmp.Height - ((border_width_in_pixels-border_stroke_thickness)/2)), s);
+                     bmp.Canvas.FillText (r, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter)
                   end;
+               x := x + tic_mark_interval
+            end;
 
-               y := y + (tic_mark_interval * pixels_per_gis_unit);
-               i := i + 1
+         y := grid_origin.y;
+         while y >= current_page_border.bounding_box_Ymin do
+            begin
+               if y <= current_page_border.bounding_box_Ymax then
+                  begin
+                     bmp.Canvas.DrawLine (PointF (0, PixelY(y)),
+                                          PointF (border_width_in_pixels, PixelY(y)),
+                                          1
+                                         );
+                     bmp.Canvas.DrawLine (PointF (bmp.Width-border_width_in_pixels, PixelY(y)),
+                                          PointF (bmp.Width, PixelY(y)),
+                                          1
+                                         )
+                  end;
+               y := y - tic_mark_interval
+            end;
+
+         y := grid_origin.y - (tic_mark_interval / 2);
+         while y >= current_page_border.bounding_box_Ymin do
+            begin
+               s := map_y_grid_string (y);
+               r := RectFforCenteredText (PointF((border_width_in_pixels-border_stroke_thickness)/2, PixelY(y)), s);
+               if (PixelY(current_page_border.bounding_box_Ymax) <= r.Top) and (r.Bottom <= PixelY(current_page_border.bounding_box_Ymin)) then
+                  begin
+                     bmp.Canvas.FillText (r, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter);
+                     r := RectFforCenteredText (PointF (bmp.Width - ((border_width_in_pixels-border_stroke_thickness)/2), PixelY(y)), s);
+                     bmp.Canvas.FillText (r, s, false, 1, [TFillTextFlag.ftRightToLeft], TTextAlign.taCenter, TTextAlign.taCenter)
+                  end;
+               y := y - tic_mark_interval
             end
       end;
 
@@ -640,11 +691,12 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
    begin    // draw_map_bitmap
       pixels_per_gis_unit := bmp_image_width_in_pixels / current_page_border.width;
 
-      bmp := FMX.Graphics.TBitmap.Create(bmp_image_width_in_pixels + round(2*dpi*border), bmp_image_height_in_pixels + round(2*dpi*border));
+      bmp := FMX.Graphics.TBitmap.Create(bmp_image_width_in_pixels + round(2*dpi*border_width), bmp_image_height_in_pixels + round(2*dpi*border_width));
       bmp.Canvas.BeginScene;
       bmp.Canvas.Clear(TAlphaColors.White);
 
       draw_polygons (parcels, true);
+      draw_map_grid;
       draw_streams;
       draw_railroad ('Historic_Rails');
       draw_railroad ('Active_Rails');
@@ -657,7 +709,10 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
       for c := Low(t_resource_classification) to High(t_resource_classification) do
          for i := 1 to Length(resources)-1 do
             with resources[i] do
-               if classification = c then
+               if (classification = c)
+                  and
+                  current_page_border.contains (GISPoint(gisX, gisY))
+               then
                   draw_resource_marker (id, gisx, gisy);
 
       bmp.Canvas.Font.Size := detail_font_size;
@@ -670,7 +725,7 @@ procedure TMainForm.draw_map_bitmap (bmp_no: integer; bmp_image_width_in_pixels,
       draw_border;
 
       bmp.Canvas.EndScene;
-      bmp.SaveToFile ('c:\temp\maps\map_' + IntToStr(bmp_no) + '.bmp');
+      bmp.SaveToFile ('c:\temp\maps\map_' + map_id + '.bmp');
       bmp.Free
    end;   // draw_map_bitmap
 
@@ -706,10 +761,6 @@ procedure TMainForm.Button1Click(Sender: TObject);
       pixels_per_gis_unit: real;
 
    begin
-      if activated then
-         exit;
-      activated := true;
-
       with FDConnection do
          begin
             Close;
@@ -721,6 +772,16 @@ procedure TMainForm.Button1Click(Sender: TObject);
                end;
             Open
          end;
+
+      AtlasLayoutsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
+      AtlasLayoutsTable.Filtered := true;
+      AtlasLayoutsTable.Active := true;
+      dpi := AtlasLayoutsTableDPI.AsInteger;
+      border_width := AtlasLayoutsTableBorder.AsFloat;
+      border_font_size := AtlasLayoutsTableBorderFontSize.AsInteger;
+      resource_circle_font_size := AtlasLayoutsTableResourceFontSize.AsInteger;
+      detail_font_size := AtlasLayoutsTableDetailCutoutFontSize.AsInteger;
+      AtlasLayoutsTable.Active := false;
 
       SetLength(parcel_data, 1);  // 0th element not used
       NGParcelTable.Active := true;
@@ -755,6 +816,11 @@ procedure TMainForm.Button1Click(Sender: TObject);
       muni_border_shape_file := TArcViewShapeFile.CreateFromFile ('..\db\muni_border.shp');
       assert (muni_border_shape_file.number_of_shapes = 1);
       muni_border := TArcViewPolygonShape(muni_border_shape_file[1]);
+      with muni_border do
+         begin
+            grid_origin.x := bounding_box_Xmin - ((round(bounding_box_Xmax-bounding_box_Xmin) mod round(tic_mark_interval)) / 2);
+            grid_origin.y := bounding_box_Ymax + ((round(bounding_box_Ymax-bounding_box_Ymin) mod round(tic_mark_interval)) / 2);
+         end;
 
       current_page_border := TArcViewPolygonShape.CreateEmpty;
 
@@ -790,16 +856,6 @@ procedure TMainForm.Button1Click(Sender: TObject);
       set_parcel_color (c_national_nonintact, class_I_color);
       set_parcel_color (c_national_intact, class_I_color);
 
-      AtlasLayoutsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
-      AtlasLayoutsTable.Filtered := true;
-      AtlasLayoutsTable.Active := true;
-      dpi := AtlasLayoutsTableDPI.AsInteger;
-      border := AtlasLayoutsTableBorder.AsFloat;
-      border_font_size := AtlasLayoutsTableBorderFontSize.AsInteger;
-      resource_circle_font_size := AtlasLayoutsTableResourceFontSize.AsInteger;
-      detail_font_size := AtlasLayoutsTableDetailCutoutFontSize.AsInteger;
-      AtlasLayoutsTable.Active := false;
-
       SetLength (bitmaps, 0);
       AtlasBitmapsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
       AtlasBitmapsTable.Filtered := true;
@@ -828,6 +884,7 @@ procedure TMainForm.Button1Click(Sender: TObject);
 
             i := Length (bitmaps);
             SetLength (bitmaps, i+1);
+            bitmaps[i].map_id := AtlasBitmapsTableMapId.AsString;
             bitmaps[i].caption := AtlasBitmapsTableCaption.AsString;
             bitmaps[i].page_no := AtlasBitmapsTablePageNo.AsInteger;
             bitmaps[i].detail := AtlasBitmapsTableDetail.AsInteger = 1;
@@ -846,14 +903,29 @@ procedure TMainForm.Button1Click(Sender: TObject);
          with bitmaps[i] do
             begin
                current_page_border.InitAsBox (GISPoint(ll_GISx,ll_GISy), GISPoint(ur_GISx, ur_GISy));
-               draw_map_bitmap (i, bmp_width_in_pixels, bmp_height_in_pixels, detail);
+               draw_map_bitmap (map_id, bmp_width_in_pixels, bmp_height_in_pixels, detail);
                Memo1.Lines.Add ('finished bmp' + IntToStr(i));
                Application.ProcessMessages
-; exit
+//;FDConnection.Close;
+//parcels.Free;
+//current_page_border.Free;
+//muni_border_shape_file.Free;
+//exit
             end;
 
+      ResourceMapGridLocationsTable.EmptyDataSet;
+      ResourceMapGridLocationsTable.Active := true;
+      for i := 0 to Length(resources)-1 do
+         with resources[i] do
+            begin
+               ResourceMapGridLocationsTable.Append;
+               ResourceMapGridLocationsTableResourceId.AsInteger := id;
+               ResourceMapGridLocationsTableMapGridLocation.AsString := map_grid_location;
+               ResourceMapGridLocationsTable.Post
+            end;
+      ResourceMapGridLocationsTable.Active := false;
+
       Memo1.Lines.Add ('DONE');
-      Application.ProcessMessages;
 
       FDConnection.Close;
       parcels.Free;

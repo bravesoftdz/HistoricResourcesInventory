@@ -110,7 +110,7 @@ object MainForm: TMainForm
     Connection = FDConnection
     UpdateOptions.UpdateTableName = 'AtlasBitmaps'
     TableName = 'AtlasBitmaps'
-    Left = 376
+    Left = 360
     Top = 296
     object AtlasBitmapsTableLayoutId: TIntegerField
       FieldName = 'LayoutId'
@@ -162,6 +162,11 @@ object MainForm: TMainForm
       FieldName = 'UR_GISy'
       Origin = 'UR_GISy'
     end
+    object AtlasBitmapsTableMapId: TFDWideMemoField
+      FieldName = 'MapId'
+      Origin = 'MapId'
+      BlobType = ftWideMemo
+    end
   end
   object AtlasLayoutsTable: TFDTable
     IndexFieldNames = 'LayoutId'
@@ -201,5 +206,28 @@ object MainForm: TMainForm
       FieldName = 'BorderFontSize'
       Origin = 'BorderFontSize'
     end
+  end
+  object ResourceMapGridLocationsTable: TFDTable
+    IndexFieldNames = 'ResourceId'
+    Connection = FDConnection
+    UpdateOptions.UpdateTableName = 'ResourceMapGridLocations'
+    TableName = 'ResourceMapGridLocations'
+    Left = 488
+    Top = 296
+    object ResourceMapGridLocationsTableResourceId: TIntegerField
+      FieldName = 'ResourceId'
+      Origin = 'ResourceId'
+      ProviderFlags = [pfInUpdate, pfInWhere, pfInKey]
+    end
+    object ResourceMapGridLocationsTableMapGridLocation: TFDWideMemoField
+      FieldName = 'MapGridLocation'
+      Origin = 'MapGridLocation'
+      BlobType = ftWideMemo
+    end
+  end
+  object Query: TFDQuery
+    Connection = FDConnection
+    Left = 360
+    Top = 232
   end
 end

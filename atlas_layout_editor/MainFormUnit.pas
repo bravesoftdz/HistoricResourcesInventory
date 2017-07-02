@@ -35,6 +35,7 @@ type
     AtlasBitmapsTableLL_GISy: TFloatField;
     AtlasBitmapsTableUR_GISx: TFloatField;
     AtlasBitmapsTableUR_GISy: TFloatField;
+    AtlasBitmapsTableMapId: TFDWideMemoField;
     procedure Button1Click(Sender: TObject);
   private
     { Private declarations }
@@ -59,7 +60,7 @@ procedure TForm20.Button1Click(Sender: TObject);
       page_image_height_in_inches = 8;
       layout_id = 1;
    var
-      page_no, x, y, vertical_pages: integer;
+      map_no, x, y, vertical_pages: integer;
       muni_border_shape_file: TArcViewShapeFile;
       muni_border: TArcViewPolygonShape;
       horizontal_gis_units_per_page, vertical_gis_units_per_page: real;
@@ -100,16 +101,17 @@ procedure TForm20.Button1Click(Sender: TObject);
          end;
 
       AtlasBitmapsTable.Active := true;
-      page_no := 1;
+      map_no := 0;
       for y := 0 to vertical_pages-1 do
          for x := 0 to horizontal_pages-1 do
             begin
-               page_no := page_no + 1;
+               map_no := map_no + 1;
                with muni_border do
                   begin
                      AtlasBitmapsTable.Append;
                      AtlasBitmapsTableLayoutId.AsInteger := layout_id;
-                     AtlasBitmapsTablePageNo.AsInteger := page_no;
+                     AtlasBitmapsTableMapId.AsString := IntToStr(map_no);
+                     AtlasBitmapsTablePageNo.AsInteger := map_no + 1;
                      AtlasBitmapsTablePagePosX.AsInteger := 1;
                      AtlasBitmapsTablePagePosY.AsInteger := 1;
                      AtlasBitmapsTableLL_GISx.AsFloat := bounding_box_Xmin + (x * horizontal_gis_units_per_page);

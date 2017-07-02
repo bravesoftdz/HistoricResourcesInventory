@@ -124,6 +124,11 @@ object Form20: TForm20
       FieldName = 'UR_GISy'
       Origin = 'UR_GISy'
     end
+    object AtlasBitmapsTableMapId: TFDWideMemoField
+      FieldName = 'MapId'
+      Origin = 'MapId'
+      BlobType = ftWideMemo
+    end
   end
   object Query: TFDQuery
     Connection = FDConnection
