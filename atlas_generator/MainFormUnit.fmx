@@ -30,6 +30,48 @@ object MainForm: TMainForm
     Width = 80.000000000000000000
     OnClick = Button1Click
   end
+  object Button2: TButton
+    Height = 22.000000000000000000
+    Position.X = 64.000000000000000000
+    Position.Y = 424.000000000000000000
+    TabOrder = 2
+    Text = 'Button2'
+    Width = 80.000000000000000000
+    OnClick = Button2Click
+  end
+  object GroupBox1: TGroupBox
+    Height = 105.000000000000000000
+    Position.X = 64.000000000000000000
+    Position.Y = 40.000000000000000000
+    Text = 'Background Coloring'
+    Width = 137.000000000000000000
+    TabOrder = 3
+    object CountyStyleRadioButton: TRadioButton
+      Height = 19.000000000000000000
+      Position.X = 16.000000000000000000
+      Position.Y = 48.000000000000000000
+      TabOrder = 0
+      Text = 'County Style'
+      Width = 120.000000000000000000
+    end
+    object ImpactZonesRadioButton: TRadioButton
+      Height = 19.000000000000000000
+      IsChecked = True
+      Position.X = 16.000000000000000000
+      Position.Y = 72.000000000000000000
+      TabOrder = 1
+      Text = 'Impact Zones'
+      Width = 120.000000000000000000
+    end
+    object NoColoringRadioButton: TRadioButton
+      Height = 19.000000000000000000
+      Position.X = 16.000000000000000000
+      Position.Y = 24.000000000000000000
+      TabOrder = 2
+      Text = 'No Coloring'
+      Width = 120.000000000000000000
+    end
+  end
   object FDConnection: TFDConnection
     Params.Strings = (
       'DriverID=SQLite'

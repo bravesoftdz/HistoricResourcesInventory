@@ -6,7 +6,8 @@ uses
   MainFormUnit in 'MainFormUnit.pas' {MainForm},
   clipper in '..\lib\clipper.pas',
   Utils in '..\lib\Utils.pas',
-  ArcViewFileUnit in '..\lib\ArcViewFileUnit.pas';
+  ArcViewFileUnit in '..\lib\ArcViewFileUnit.pas',
+  HistoricalImpactZonesUnit in 'HistoricalImpactZonesUnit.pas';
 
 {$R *.res}
 

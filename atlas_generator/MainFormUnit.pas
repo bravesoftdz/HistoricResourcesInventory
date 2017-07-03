@@ -27,8 +27,8 @@ const
 
    // constants for drawing resource id circles
    status_circle_radius_multiplier = 0.4875;
-   ring_circle_radius_multiplier = 1.15;
-   marker_radius_multiplier = 1.25;
+   ring_circle_radius_multiplier = 1.2;
+   marker_radius_multiplier = 1.3;
 
    tie_width_dpi_divisor = 10;
    tie_spacing_dpi_divisor = 5;
@@ -36,6 +36,8 @@ const
    tic_mark_interval = 1000;   // in GIS units (ft)
 
    border_stroke_thickness = 10;
+   muni_border_stroke_thickness = 2;
+   parcel_border_stroke_thickness = 1;
 
 type
    t_resource_classification =
@@ -49,6 +51,7 @@ type
        c_national_nonintact,
        c_national_intact
       );
+   t_resource_classification_set = set of t_resource_classification;
 
 type
    tResource =
@@ -118,9 +121,21 @@ type
     ResourceMapGridLocationsTableResourceId: TIntegerField;
     ResourceMapGridLocationsTableMapGridLocation: TFDWideMemoField;
     Query: TFDQuery;
+    Button2: TButton;
+    GroupBox1: TGroupBox;
+    CountyStyleRadioButton: TRadioButton;
+    ImpactZonesRadioButton: TRadioButton;
+    NoColoringRadioButton: TRadioButton;
     procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
   private
+    type
+      t_background_coloring_style = (bcs_no_coloring, bcs_county_style, bcs_impact_zones);
+    var
       parcels: TArcViewShapeFile;
+      national_resources_impact_zones: TArcViewShapeFile;
+      local_resources_impact_zones: TArcViewShapeFile;
+      fifty_plus_resources_impact_zones: TArcViewShapeFile;
       muni_border: TArcViewPolygonShape;
       grid_origin: TGISPoint;  { upper left corner }
       parcel_data:
@@ -150,11 +165,14 @@ type
       resource_circle_font_size: integer;
       detail_font_size: integer;
 
-      current_page_border: TArcViewPolygonShape;
 
+      current_page_border: TArcViewPolygonShape;
+    procedure set_background_coloring_style (s: t_background_coloring_style);
+    function get_background_coloring_style:  t_background_coloring_style;
     function map_x_grid_string (x: real {GIS units}): string;
     function map_y_grid_string (y: real {GIS units}): string;
     procedure draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
+    property background_coloring_style: t_background_coloring_style read get_background_coloring_style write set_background_coloring_style;
   public
     { Public declarations }
   end;
@@ -168,7 +186,8 @@ IMPLEMENTATION
 
 uses
    Utils, FMX.Printer, Winapi.Windows, System.UIConsts, fmx.objects,
-   System.Math;
+   System.Math, HistoricalImpactZonesUnit;
+
 
 function tResource.set_classification (s: string): boolean;
    begin
@@ -256,6 +275,15 @@ function TMainForm.map_y_grid_string (y: real {GIS units}): string;
       result := IntToStr (1 + Floor ((grid_origin.y - y) / tic_mark_interval))
    end;
 
+procedure TMainForm.Button2Click(Sender: TObject);
+var h: tHistoricalImpactZones;
+begin
+//    h := tHistoricalImpactZones.Create;
+//    h.AddPointResource (GISPoint(0,0), 100);
+//    h.AddPointResource (GISPoint(50,0), 100);
+//    h.Free
+end;
+
 procedure TMainForm.draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, bmp_image_height_in_pixels: integer; detail_map: boolean);
    var
       bmp: FMX.Graphics.TBitmap;
@@ -282,17 +310,48 @@ procedure TMainForm.draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, 
          result.Right := center.x + bmp.Canvas.TextWidth(s)
       end;
 
-   procedure draw_polygons (polys: TArcViewShapeFile; color_parcel: boolean);
+   procedure draw_parcels;
+      var
+         parcel_no: integer;
+
+      procedure fill_portion_of_parcel_in_impact_zone (zone: TArcViewShapeFile; color: TAlphaColor);
+         var
+            portion_of_parcel_in_impact_zone: TArcViewPolygonShape;
+            z,p,i: integer;
+            points: TPolygon;  // array of TPoint;
+         begin
+            for z := 1 to zone.number_of_shapes do
+               begin
+                  portion_of_parcel_in_impact_zone := TArcViewPolygonShape(parcels.shapes[parcel_no]).Intersection(TArcViewPolygonShape(zone.shapes[z]));
+                  with portion_of_parcel_in_impact_zone do
+                     for p := 0 to Length(Part)-1 do
+                        begin
+                           SetLength (points, Length(Part[p])+1);
+                           for i := 0 to Length(Part[p])-1
+                           do begin
+                                 points[i].x := pixelX(Part[p][i].x);
+                                 points[i].y := pixelY(Part[p][i].y)
+                              end;
+                           points[Length(Part[p])].x := pixelX(Part[p][0].x);
+                           points[Length(Part[p])].y := pixelY(Part[p][0].y);
+
+                           bmp.Canvas.Fill.Color := color;
+                           bmp.Canvas.FillPolygon (points, 1)
+                        end;
+                  portion_of_parcel_in_impact_zone.Free
+               end
+         end;
+
       var
          p,i: integer;
-         parcel_no: integer;
-         points: TPolygon;  //array of TPoint;
-         intersection: TArcViewPolygonShape;
+         portion_of_parcel_within_muni_boundary: TArcViewPolygonShape;
+         points: TPolygon;  // array of TPoint;
       begin
-         for parcel_no := 1 to polys.number_of_shapes do
+         bmp.Canvas.StrokeThickness := parcel_border_stroke_thickness;
+         for parcel_no := 1 to parcels.number_of_shapes do
             begin
-               intersection := TArcViewPolygonShape(polys.shapes [parcel_no]).Intersection(muni_border);
-               with intersection do
+               portion_of_parcel_within_muni_boundary := TArcViewPolygonShape(parcels.shapes [parcel_no]).Intersection(muni_border);
+               with portion_of_parcel_within_muni_boundary do
                   for p := 0 to Length(Part)-1 do
                      begin
                         SetLength (points, Length(Part[p])+1);
@@ -303,18 +362,83 @@ procedure TMainForm.draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, 
                            end;
                         points[Length(Part[p])].x := pixelX(Part[p][0].x);
                         points[Length(Part[p])].y := pixelY(Part[p][0].y);
-                        if color_parcel
-                           and
-                           (parcel_data[parcel_no].color <> TAlphaColors.white)
-                        then
-                           begin
-                              bmp.Canvas.Fill.Color := parcel_data[parcel_no].color;
-                              bmp.Canvas.FillPolygon (points, 1);
-                              bmp.Canvas.Fill.Color := TAlphaColors.white
-                           end;
+
+                        case background_coloring_style of
+                           bcs_no_coloring:
+                              begin
+                                 bmp.Canvas.Fill.Color := unclassified_color;
+                                 bmp.Canvas.FillPolygon (points, 1);
+                              end;
+                           bcs_county_style:
+                              begin
+                                 bmp.Canvas.Fill.Color := parcel_data[parcel_no].color;
+                                 bmp.Canvas.FillPolygon (points, 1);
+                              end;
+                           bcs_impact_zones:
+                              begin
+                                 bmp.Canvas.Fill.Color := unclassified_color;
+                                 bmp.Canvas.FillPolygon (points, 1);
+
+                                 fill_portion_of_parcel_in_impact_zone (fifty_plus_resources_impact_zones , class_III_color);
+                                 fill_portion_of_parcel_in_impact_zone (local_resources_impact_zones , class_II_color);
+                                 fill_portion_of_parcel_in_impact_zone (national_resources_impact_zones , class_I_color)
+                              end
+                        else
+                           assert (false)
+                        end;
+
                         bmp.Canvas.DrawPolygon (points, 1)
                      end;
-               intersection.Free
+               portion_of_parcel_within_muni_boundary.Free
+            end
+      end;
+
+   procedure draw_impact_zones (z: TArcViewShapeFile; fill_color: TAlphaColor);
+      var
+         sh, i, p: integer;
+         points: TPolygon;  //array of TPoint;
+      begin
+         for sh := 1 to z.number_of_shapes do
+            with TArcViewPolygonShape(z.shapes[sh]) do
+               for p := 0 to Length(Part)-1 do
+                  begin
+                     SetLength (points, Length(Part[p])+1);
+                     for i := 0 to Length(Part[p])-1
+                     do begin
+                           points[i].x := pixelX(Part[p][i].x);
+                           points[i].y := pixelY(Part[p][i].y)
+                        end;
+                     points[Length(Part[p])].x := pixelX(Part[p][0].x);
+                     points[Length(Part[p])].y := pixelY(Part[p][0].y);
+                     bmp.Canvas.Fill.Color := fill_color;
+                     bmp.Canvas.FillPolygon (points, 1)
+                  end
+      end;
+
+   procedure draw_blank_muni;
+      var
+         i: integer;
+         points: TPolygon;  //array of TPoint;
+      begin
+         with muni_border do
+            begin
+               assert (Length(Part) = 1);
+               SetLength (points, Length(Part[0])+1);
+               for i := 0 to Length(Part[0])-1
+               do begin
+                     points[i].x := pixelX(Part[0][i].x);
+                     points[i].y := pixelY(Part[0][i].y)
+                  end;
+               points[Length(Part[0])].x := pixelX(Part[0][0].x);
+               points[Length(Part[0])].y := pixelY(Part[0][0].y);
+
+               bmp.Canvas.Fill.Color := TAlphaColors.White;
+               bmp.Canvas.FillPolygon (points, 1);
+
+               bmp.Canvas.Stroke.Cap := TStrokeCap.scRound;
+               bmp.Canvas.Stroke.Color := TAlphaColors.Black;
+               bmp.Canvas.StrokeThickness := muni_border_stroke_thickness;
+               bmp.Canvas.DrawPolygon (points, 1)
             end
       end;
 
@@ -695,7 +819,18 @@ procedure TMainForm.draw_map_bitmap (map_id: string; bmp_image_width_in_pixels, 
       bmp.Canvas.BeginScene;
       bmp.Canvas.Clear(TAlphaColors.White);
 
-      draw_polygons (parcels, true);
+      if background_coloring_style = bcs_impact_zones then
+         begin
+            // draw impact zones first - these will be the portion outside the muni boundaries
+            draw_impact_zones (fifty_plus_resources_impact_zones, class_III_color);
+            draw_impact_zones (local_resources_impact_zones, class_II_color);
+            draw_impact_zones (national_resources_impact_zones, class_I_color)
+         end;
+
+      draw_blank_muni;
+
+      draw_parcels;
+
       draw_map_grid;
       draw_streams;
       draw_railroad ('Historic_Rails');
@@ -750,6 +885,22 @@ procedure TMainForm.Button1Click(Sender: TObject);
          Memo1.Lines.Add (format ('%d class %d resources', [count, ord(_classification)]))
       end;
 
+   function GetImpactZones (classifications: t_resource_classification_set): TArcViewShapeFile;
+      var
+         i: integer;
+         z: tHistoricalImpactZones;
+      begin
+         z := tHistoricalImpactZones.Create;
+         for i := 0 to Length(resources)-1 do
+            if resources[i].classification in classifications then
+               if resources[i].non_point_resource then
+                  assert (false)
+               else
+                  z.AddPointResource (resources[i].gisx, resources[i].gisy, 500);
+         result := z.CreateHistoricalImpactZonesShapeFile;
+         z.Free
+      end;
+
    const
       layout_id = 1;
    var
@@ -761,6 +912,8 @@ procedure TMainForm.Button1Click(Sender: TObject);
       pixels_per_gis_unit: real;
 
    begin
+      Memo1.Lines.Clear;
+
       with FDConnection do
          begin
             Close;
@@ -813,6 +966,10 @@ procedure TMainForm.Button1Click(Sender: TObject);
          end;
       ResourcesTable.Active := false;
 
+      national_resources_impact_zones := GetImpactZones ([c_national_archaeological, c_national_nonintact, c_national_intact]);
+      local_resources_impact_zones := GetImpactZones ([c_local_archaeological, c_local_nonintact, c_local_intact]);
+      fifty_plus_resources_impact_zones := GetImpactZones ([c_50plus_intact]);
+
       muni_border_shape_file := TArcViewShapeFile.CreateFromFile ('..\db\muni_border.shp');
       assert (muni_border_shape_file.number_of_shapes = 1);
       muni_border := TArcViewPolygonShape(muni_border_shape_file[1]);
@@ -855,6 +1012,9 @@ procedure TMainForm.Button1Click(Sender: TObject);
       set_parcel_color (c_national_archaeological, class_I_color);
       set_parcel_color (c_national_nonintact, class_I_color);
       set_parcel_color (c_national_intact, class_I_color);
+
+
+
 
       SetLength (bitmaps, 0);
       AtlasBitmapsTable.Filter := 'LayoutId=' + IntToStr(layout_id);
@@ -906,31 +1066,55 @@ procedure TMainForm.Button1Click(Sender: TObject);
                draw_map_bitmap (map_id, bmp_width_in_pixels, bmp_height_in_pixels, detail);
                Memo1.Lines.Add ('finished bmp' + IntToStr(i));
                Application.ProcessMessages
-//;FDConnection.Close;
-//parcels.Free;
-//current_page_border.Free;
-//muni_border_shape_file.Free;
-//exit
             end;
 
-      ResourceMapGridLocationsTable.EmptyDataSet;
-      ResourceMapGridLocationsTable.Active := true;
-      for i := 0 to Length(resources)-1 do
-         with resources[i] do
-            begin
-               ResourceMapGridLocationsTable.Append;
-               ResourceMapGridLocationsTableResourceId.AsInteger := id;
-               ResourceMapGridLocationsTableMapGridLocation.AsString := map_grid_location;
-               ResourceMapGridLocationsTable.Post
-            end;
-      ResourceMapGridLocationsTable.Active := false;
+//      ResourceMapGridLocationsTable.EmptyDataSet;
+//      ResourceMapGridLocationsTable.Active := true;
+//      for i := 0 to Length(resources)-1 do
+//         with resources[i] do
+//            begin
+//               ResourceMapGridLocationsTable.Append;
+//               ResourceMapGridLocationsTableResourceId.AsInteger := id;
+//               ResourceMapGridLocationsTableMapGridLocation.AsString := map_grid_location;
+//               ResourceMapGridLocationsTable.Post
+//            end;
+//      ResourceMapGridLocationsTable.Active := false;
 
       Memo1.Lines.Add ('DONE');
 
       FDConnection.Close;
       parcels.Free;
       current_page_border.Free;
-      muni_border_shape_file.Free
+      muni_border_shape_file.Free;
+      national_resources_impact_zones.Free;
+      local_resources_impact_zones.Free;
+      fifty_plus_resources_impact_zones.Free;
+   end;
+
+procedure TMainForm.set_background_coloring_style (s: t_background_coloring_style);
+   begin
+      case s of
+         bcs_no_coloring:
+            NoColoringRadioButton.IsChecked := true;
+         bcs_county_style:
+            CountyStyleRadioButton.IsChecked := true;
+         bcs_impact_zones:
+            ImpactZonesRadioButton.IsChecked := true;
+      else
+         assert (false)
+      end
+   end;
+
+function TMainForm.get_background_coloring_style:  t_background_coloring_style;
+   begin
+      if NoColoringRadioButton.IsChecked then
+         result := bcs_no_coloring
+      else if CountyStyleRadioButton.IsChecked then
+         result := bcs_county_style
+      else if ImpactZonesRadioButton.IsChecked then
+         result := bcs_impact_zones
+      else
+         assert (false)
    end;
 
 END.

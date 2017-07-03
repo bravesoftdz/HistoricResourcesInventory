@@ -1129,11 +1129,26 @@ function TArcViewPolyLineShape.part_point_index (part_no: integer): integer;
    end;
 
 function TArcViewPolyLineShape.CreateCopy: TArcViewShapeBaseClass;
-   var i: integer;
+   var
+      i,j: integer;
+      newsh: TArcViewPolyLineShape;
    begin
-      result := TArcViewPolyLineShape.Create (size);
+      newsh := TArcViewPolyLineShape.Create (size);
       for i := 0 to size-1 do
-         result.b[i] := b[i]
+         newsh.b[i] := b[i];
+      SetLength (newsh.Part, Length(Part));
+      SetLength (newsh.iPart, Length(Part));
+      for i := 0 to Length(Part)-1 do
+         begin
+            SetLength (newsh.Part[i], Length(Part[i]));
+            SetLength (newsh.iPart[i], Length(Part[i]));
+            for j := 0 to Length(Part[i])-1 do
+               begin
+                  newsh.Part[i,j] := Part[i,j];
+                  newsh.iPart[i,j] := iPart[i,j]
+               end
+         end;
+      result := newsh
    end;
 
 function TArcViewPolyLineShape.shape_type: integer;
@@ -1233,11 +1248,26 @@ procedure TArcViewPolygonShape.Add (x,y: real);
    end;
 
 function TArcViewPolygonShape.CreateCopy: TArcViewShapeBaseClass;
-   var i: integer;
+   var
+      i,j: integer;
+      newsh: TArcViewPolygonShape;
    begin
-      result := TArcViewPolygonShape.Create (size);
+      newsh := TArcViewPolygonShape.Create (size);
       for i := 0 to size-1 do
-         result.b[i] := b[i]
+         newsh.b[i] := b[i];
+      SetLength (newsh.Part, Length(Part));
+      SetLength (newsh.iPart, Length(Part));
+      for i := 0 to Length(Part)-1 do
+         begin
+            SetLength (newsh.Part[i], Length(Part[i]));
+            SetLength (newsh.iPart[i], Length(Part[i]));
+            for j := 0 to Length(Part[i])-1 do
+               begin
+                  newsh.Part[i,j] := Part[i,j];
+                  newsh.iPart[i,j] := iPart[i,j]
+               end
+         end;
+      result := newsh
    end;
 
 function TArcViewPolygonShape.shape_type: integer;
@@ -1476,6 +1506,7 @@ function TArcViewPolygonShape.Intersection (poly: TArcViewPolygonShape): TArcVie
 constructor TArcViewShapeFile.Create (shape_type: integer);
    begin
       file_header := TArcViewFileHeader.Create (shape_type);
+      SetLength (f_shapes, 1)   // 0th element not used
    end;
 
 constructor TArcViewShapeFile.CreateFromFile (file_name: string);
